@@ -1,0 +1,88 @@
+services:
+
+  mysql-auth:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${AUTH_DB_ROOT_PASSWORD:-hakidata_root_secret}
+      MYSQL_DATABASE: hakidata_auth
+      MYSQL_USER: ${AUTH_DB_USER:-hakidata}
+      MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:-hakidata_secret}
+    volumes:
+      - mysql_auth_data:/var/lib/mysql
+    networks:
+      - hakidata-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=${AUTH_DB_ROOT_PASSWORD:-hakidata_root_secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8091:8080"
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+    networks:
+      - hakidata-network
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql-auth
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      MAX_USERS: ${MAX_USERS:-100}
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY}
+    ports:
+      - "8009:8000"
+    volumes:
+      - ./requests:/app/requests
+      - ./sql:/app/sql
+      - ./schema:/app/schema
+      - ./dataviz:/app/dataviz
+      - ./outputs:/app/outputs
+      - ./runtime:/app/runtime
+      # Bases SQLite des imports CSV/Excel. Sans ce montage elles vivent dans la
+      # couche du conteneur et sont perdues a chaque recreation, alors que la
+      # table user_uploads continue de les referencer.
+      - ./uploads:/app/uploads
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - hakidata-network
+
+  # Interface validée (ex-frontend-v2) — remplace définitivement l'ancienne
+  # sur le port 3000. L'ancien code reste sur disque dans frontend-old/
+  # (non branché à docker-compose) au cas où.
+  frontend:
+    build:
+      context: ./frontend-v2
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - hakidata-network
+
+networks:
+  hakidata-network:
+    driver: bridge
+
+volumes:
+  mysql_auth_data:

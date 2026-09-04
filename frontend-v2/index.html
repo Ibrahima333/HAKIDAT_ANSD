@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/hakidata-logo.svg" />
+    <title>HakiData</title>
+    <!--
+      Applique le thème AVANT le premier rendu du navigateur, pour éviter le
+      flash blanc : sans ça, html/body restent transparents jusqu'à ce que
+      React monte et applique bg-zinc-950 sur sa propre div racine — un délai
+      qui laisse voir le fond blanc par défaut du navigateur.
+    -->
+    <style>
+      html, body { background-color: #ffffff; }
+      html.dark, html.dark body { background-color: #09090b; }
+    </style>
+    <script>
+      try {
+        if (localStorage.getItem("hakidata_theme") === "dark") {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

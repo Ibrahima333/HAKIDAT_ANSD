@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 460">
+  <defs>
+    <radialGradient id="goldCircle" cx="38%" cy="32%" r="68%">
+      <stop offset="0%"   stop-color="#FFE066"/>
+      <stop offset="35%"  stop-color="#C8940A"/>
+      <stop offset="100%" stop-color="#5C3A00"/>
+    </radialGradient>
+    <radialGradient id="shine" cx="36%" cy="26%" r="42%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="borderGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#FFE680"/>
+      <stop offset="100%" stop-color="#7A5200"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#00000050"/>
+    </filter>
+  </defs>
+
+  <!-- Cercle doré centré -->
+  <circle cx="250" cy="185" r="160" fill="url(#goldCircle)" filter="url(#shadow)"/>
+  <circle cx="250" cy="185" r="160" fill="none" stroke="url(#borderGold)" stroke-width="3.5"/>
+  <circle cx="250" cy="185" r="160" fill="url(#shine)"/>
+
+  <!-- Monogramme H : 2 barres gauches + traverse + 2 barres droites -->
+  <rect x="132" y="111" width="20" height="148" rx="10" fill="white"/>
+  <rect x="162" y="111" width="20" height="148" rx="10" fill="white"/>
+  <rect x="200" y="165" width="100" height="20" rx="10" fill="white"/>
+  <rect x="318" y="111" width="20" height="148" rx="10" fill="white"/>
+  <rect x="348" y="111" width="20" height="148" rx="10" fill="white"/>
+
+  <!-- Texte HAKIDATA centré -->
+  <text x="250" y="410"
+        font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
+        font-weight="900" font-size="70" fill="#FFFFFF" letter-spacing="2"
+        text-anchor="middle">HAKI<tspan fill="#C8940A">DATA</tspan></text>
+</svg>

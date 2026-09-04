@@ -1,0 +1,113 @@
+services:
+
+  mysql-auth:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${AUTH_DB_ROOT_PASSWORD:-hakidata_root_2024}
+      MYSQL_DATABASE: hakidata_auth
+      MYSQL_USER: ${AUTH_DB_USER:-hakidata}
+      MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:-hakidata_secret}
+    volumes:
+      - mysql_auth_data:/var/lib/mysql
+    networks:
+      - hakidata-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=${AUTH_DB_ROOT_PASSWORD:-hakidata_root_2024}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+    networks:
+      - hakidata-network
+
+  backend:
+    image: ibrahima123/hakidata-backend:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY}
+    ports:
+      - "8009:8000"
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - hakidata-network
+
+  frontend:
+    image: ibrahima123/hakidata-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - hakidata-network
+
+  backup:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${AUTH_DB_ROOT_PASSWORD}
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-hakidata_auth}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+    networks:
+      - hakidata-network
+    entrypoint: >
+      bash -c '
+        echo "[backup] Conteneur de sauvegarde démarré.";
+        while true; do
+          NOW=$$(date +%H:%M);
+          TARGET="02:00";
+          NOW_S=$$(date -d "$$NOW" +%s 2>/dev/null || date -j -f "%H:%M" "$$NOW" +%s 2>/dev/null);
+          TGT_S=$$(date -d "$$TARGET" +%s 2>/dev/null || date -j -f "%H:%M" "$$TARGET" +%s 2>/dev/null);
+          if [ "$$NOW_S" -lt "$$TGT_S" ]; then
+            SLEEP=$$((TGT_S - NOW_S));
+          else
+            SLEEP=$$((86400 - NOW_S + TGT_S));
+          fi;
+          echo "[backup] Prochaine sauvegarde dans $$(( SLEEP / 3600 ))h$$(( (SLEEP % 3600) / 60 ))min.";
+          sleep $$SLEEP;
+          FILENAME="/backups/hakidata_backup_$$(date +%Y-%m-%d_%H-%M-%S).sql";
+          echo "[backup] Sauvegarde en cours : $$FILENAME";
+          mysqldump -h mysql-auth -u root -p"$$MYSQL_ROOT_PASSWORD" "$$AUTH_DB_NAME" > "$$FILENAME";
+          if [ $$? -eq 0 ] && [ -s "$$FILENAME" ]; then
+            echo "[backup] Sauvegarde réussie.";
+            ls -1t /backups/hakidata_backup_*.sql 2>/dev/null | tail -n +31 | xargs -r rm -f;
+            echo "[backup] Nettoyage effectué (conservation des 30 dernières).";
+          else
+            rm -f "$$FILENAME";
+            echo "[backup] ERREUR : sauvegarde échouée.";
+          fi;
+        done
+      '
+
+networks:
+  hakidata-network:
+    driver: bridge
+
+volumes:
+  mysql_auth_data:
